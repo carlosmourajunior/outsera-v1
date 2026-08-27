@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+*.egg-info/
+.env
+.DS_Store
+.claude/
+
+# Enunciado da avaliacao: material de origem, nao artefato do projeto.
+# Fica local; specs/001-requirements.md transcreve os requisitos com ID.
+docs/*.pdf

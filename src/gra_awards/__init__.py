@@ -1,0 +1,1 @@
+"""Pacote gra_awards."""
