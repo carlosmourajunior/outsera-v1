@@ -1,5 +1,3 @@
-"""Composicao da aplicacao FastAPI."""
-
 from __future__ import annotations
 
 import logging

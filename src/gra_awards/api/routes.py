@@ -1,5 +1,3 @@
-"""Recursos HTTP da aplicacao (`API-01`, `API-05` a `API-07`, `RNF-01`)."""
-
 from __future__ import annotations
 
 import sqlite3
@@ -52,9 +50,6 @@ router = APIRouter()
     ),
 )
 async def read_award_intervals(connection: Connection) -> AwardIntervalsOut:
-    # `async def` mantem a leitura na thread do event loop: a consulta percorre
-    # apenas as linhas vencedoras de um banco em memoria, e o custo de despachar
-    # para o threadpool superaria o da propria query.
     win_years = fetch_win_years_by_producer(connection)
     return AwardIntervalsOut.from_domain(compute_award_intervals(win_years))
 
@@ -84,9 +79,6 @@ async def list_movies(
         int, Query(ge=1, le=MAX_PAGE_SIZE, description="Itens por pagina")
     ] = DEFAULT_PAGE_SIZE,
 ) -> MoviePageOut:
-    # `total` vem de uma contagem propria no banco, nao do tamanho da lista
-    # devolvida: sao perguntas diferentes, e confundi-las e o modo mais comum de
-    # uma paginacao mentir sobre quantas paginas existem (`DR-19`).
     total = count_movies(connection, year=year, winner=winner)
     rows = fetch_movies(
         connection,
@@ -96,8 +88,6 @@ async def list_movies(
         offset=(page - 1) * size,
     )
 
-    # Uma consulta para os produtores da pagina inteira, em vez de uma por
-    # filme. Ver `fetch_producers_by_movie`.
     producers = fetch_producers_by_movie(connection, [int(row["id"]) for row in rows])
 
     return MoviePageOut(
@@ -124,9 +114,6 @@ async def read_movie(
     row = fetch_movie(connection, movie_id)
 
     if row is None:
-        # 404 aqui e correto pelo mesmo motivo que o torna errado em `DR-11`:
-        # la o recurso existe e o resultado e vazio; aqui o recurso pedido nao
-        # existe.
         raise HTTPException(status_code=404, detail="Filme nao encontrado")
 
     producers = fetch_producers_by_movie(connection, [movie_id])

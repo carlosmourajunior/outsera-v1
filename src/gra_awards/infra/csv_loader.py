@@ -1,5 +1,3 @@
-"""Carga do CSV de filmes para o banco em memoria (`RF-01`, `DR-01`, `DR-02`)."""
-
 from __future__ import annotations
 
 import csv
@@ -12,27 +10,17 @@ CSV_DELIMITER = ";"
 
 REQUIRED_COLUMNS = frozenset({"year", "title", "studios", "producers", "winner"})
 
-#: `DR-02`: apenas este valor, apos normalizacao, marca um vencedor.
 WINNER_FLAG = "yes"
-
 
 class CsvFormatError(ValueError):
     """CSV ilegivel: cabecalho ausente ou linha malformada."""
 
 
 def _is_winner(raw_value: str | None) -> bool:
-    """`DR-02` - tolera variacao de caixa e espaco, como exige a restricao de
-    que outros datasets serao usados na avaliacao."""
     return (raw_value or "").strip().lower() == WINNER_FLAG
 
 
 def load_movies(connection: sqlite3.Connection, csv_path: Path) -> int:
-    """Le o CSV e popula o banco. Devolve a quantidade de filmes inseridos.
-
-    `utf-8-sig` em vez de `utf-8`: arquivos exportados por planilhas costumam
-    trazer BOM, que contaminaria o nome da primeira coluna e faria o cabecalho
-    inteiro deixar de ser reconhecido.
-    """
     with csv_path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle, delimiter=CSV_DELIMITER)
 
@@ -44,9 +32,6 @@ def load_movies(connection: sqlite3.Connection, csv_path: Path) -> int:
                 f"{sorted(REQUIRED_COLUMNS)}, encontrado {reader.fieldnames}"
             )
 
-        # Cache nome -> id: evita um SELECT por produtor por filme. Como cada
-        # produtor aparece em varios filmes, a diferenca e uma ordem de
-        # grandeza em numero de consultas.
         producer_ids: dict[str, int] = {}
         movie_count = 0
 
@@ -60,9 +45,6 @@ def load_movies(connection: sqlite3.Connection, csv_path: Path) -> int:
                     producer_id = _insert_producer(connection, name)
                     producer_ids[name] = producer_id
 
-                # `OR IGNORE`: o mesmo produtor creditado duas vezes no mesmo
-                # filme e ruido de dados, nao erro - a chave primaria composta
-                # ja garante o credito unico (`DR-04`).
                 connection.execute(
                     "INSERT OR IGNORE INTO movie_producers (movie_id, producer_id) "
                     "VALUES (?, ?)",
@@ -82,9 +64,6 @@ def _insert_movie(
     try:
         year = int((row.get("year") or "").strip())
     except ValueError as error:
-        # Falhar apontando a linha e melhor do que ignorar silenciosamente: um
-        # dataset de avaliacao corrompido deve ser um erro visivel, nao um
-        # resultado sutilmente errado.
         raise CsvFormatError(
             f"{csv_path}:{line_num}: ano invalido {row.get('year')!r}"
         ) from error
