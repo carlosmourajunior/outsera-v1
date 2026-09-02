@@ -26,30 +26,36 @@ def _in_response_order(pairs: Iterable[AwardInterval]) -> list[AwardInterval]:
 def compute_award_intervals(
     wins_by_producer: Mapping[str, Iterable[int]],
 ) -> AwardIntervalsResult:
-    pairs: list[AwardInterval] = []
+    shortest: int | None = None
+    longest: int | None = None
+    min_pairs: list[AwardInterval] = []
+    max_pairs: list[AwardInterval] = []
 
     for producer, years in wins_by_producer.items():
         award_years = sorted(set(years))
 
         if len(award_years) < 2:
             continue
-        pairs.extend(
-            AwardInterval(
+
+        for previous, following in zip(award_years, award_years[1:]):
+            pair = AwardInterval(
                 producer=producer,
                 interval=following - previous,
                 previous_win=previous,
                 following_win=following,
             )
-            for previous, following in zip(award_years, award_years[1:])
-        )
 
-    if not pairs:
-        return AwardIntervalsResult(min=[], max=[])  # DR-11
+            if shortest is None or pair.interval < shortest:
+                shortest, min_pairs = pair.interval, [pair]
+            elif pair.interval == shortest:
+                min_pairs.append(pair)
 
-    shortest = min(pair.interval for pair in pairs)
-    longest = max(pair.interval for pair in pairs)
+            if longest is None or pair.interval > longest:
+                longest, max_pairs = pair.interval, [pair]
+            elif pair.interval == longest:
+                max_pairs.append(pair)
 
     return AwardIntervalsResult(
-        min=_in_response_order(p for p in pairs if p.interval == shortest),
-        max=_in_response_order(p for p in pairs if p.interval == longest),
+        min=_in_response_order(min_pairs),
+        max=_in_response_order(max_pairs),
     )
