@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from gra_awards.infra.csv_loader import CsvFormatError, load_movies
-from gra_awards.infra.repository import fetch_producers_by_movie
+from gra_awards.infra.repository import fetch_movie_with_producers
 
 
 def test_load_movies_returns_the_number_of_rows_inserted(
@@ -106,5 +106,7 @@ def test_producer_credited_twice_in_same_movie_is_linked_only_once(
     load_movies(connection, csv_path)
 
     movie_id = connection.execute("SELECT id FROM movies").fetchone()["id"]
-    producers = fetch_producers_by_movie(connection, [movie_id])
-    assert producers[movie_id] == ["Allan Carr"]
+    found = fetch_movie_with_producers(connection, movie_id)
+
+    assert found is not None
+    assert found[1] == ["Allan Carr"]
