@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 
@@ -24,36 +24,43 @@ def _in_response_order(pairs: Iterable[AwardInterval]) -> list[AwardInterval]:
 
 
 def compute_award_intervals(
-    wins_by_producer: Mapping[str, Iterable[int]],
+    wins: Iterable[tuple[str, int]],
 ) -> AwardIntervalsResult:
+
     shortest: int | None = None
     longest: int | None = None
     min_pairs: list[AwardInterval] = []
     max_pairs: list[AwardInterval] = []
 
-    for producer, years in wins_by_producer.items():
-        award_years = sorted(set(years))
 
-        if len(award_years) < 2:
+    current_producer: str | None = None
+    previous_win = 0
+
+    for producer, year in wins:
+        if producer != current_producer:
+            current_producer, previous_win = producer, year
             continue
 
-        for previous, following in zip(award_years, award_years[1:]):
-            pair = AwardInterval(
-                producer=producer,
-                interval=following - previous,
-                previous_win=previous,
-                following_win=following,
-            )
+        if year == previous_win:
+            continue
 
-            if shortest is None or pair.interval < shortest:
-                shortest, min_pairs = pair.interval, [pair]
-            elif pair.interval == shortest:
-                min_pairs.append(pair)
+        pair = AwardInterval(
+            producer=producer,
+            interval=year - previous_win,
+            previous_win=previous_win,
+            following_win=year,
+        )
+        previous_win = year
 
-            if longest is None or pair.interval > longest:
-                longest, max_pairs = pair.interval, [pair]
-            elif pair.interval == longest:
-                max_pairs.append(pair)
+        if shortest is None or pair.interval < shortest:
+            shortest, min_pairs = pair.interval, [pair]
+        elif pair.interval == shortest:
+            min_pairs.append(pair)
+
+        if longest is None or pair.interval > longest:
+            longest, max_pairs = pair.interval, [pair]
+        elif pair.interval == longest:
+            max_pairs.append(pair)
 
     return AwardIntervalsResult(
         min=_in_response_order(min_pairs),
