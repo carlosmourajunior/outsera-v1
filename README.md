@@ -194,7 +194,7 @@ Retorna um único filme pelo identificador.
 A suíte cobre as três camadas do projeto:
 
 - `tests/domain/` — funções puras (`split_producers`, `split_studios`, `compute_award_intervals`), incluindo casos de empate, deduplicação e listas vazias.
-- `tests/infra/` — carga do CSV para o SQLite (`csv_loader`) e as consultas do `repository` (filtros, paginação, ordenação).
+- `tests/infra/` — carga do CSV para o SQLite (`csv_loader`) e as consultas do `repository` (filtros, paginação, ordenação). Inclui testes que travam os **contratos de ordenação** das queries: o cálculo de intervalos e o agrupamento de produtores são feitos em um único passe sobre o resultado, o que só é correto porque o banco já entrega as linhas agrupadas e ordenadas.
 - `tests/api/` — endpoints via `TestClient`, cobrindo filtros combinados, paginação, validação de query params, 404 e o formato camelCase de `/producers/intervals`.
 
 Rodar com (após instalar `requirements-dev.txt`):

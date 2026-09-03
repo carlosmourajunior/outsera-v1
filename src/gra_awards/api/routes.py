@@ -9,10 +9,9 @@ from gra_awards.api.schemas import AwardIntervalsOut, MovieOut, MoviePageOut
 from gra_awards.domain.intervals import compute_award_intervals
 from gra_awards.infra.repository import (
     count_movies,
-    fetch_movie,
-    fetch_movies,
-    fetch_producers_by_movie,
-    fetch_win_years_by_producer,
+    fetch_movie_with_producers,
+    fetch_movies_with_producers,
+    fetch_win_years,
 )
 
 #: Limites de paginacao de `API-05`. O maximo existe para que o tamanho da
@@ -50,8 +49,10 @@ router = APIRouter()
     ),
 )
 async def read_award_intervals(connection: Connection) -> AwardIntervalsOut:
-    win_years = fetch_win_years_by_producer(connection)
-    return AwardIntervalsOut.from_domain(compute_award_intervals(win_years))
+
+    return AwardIntervalsOut.from_domain(
+        compute_award_intervals(fetch_win_years(connection))
+    )
 
 
 @router.get(
@@ -80,24 +81,19 @@ async def list_movies(
     ] = DEFAULT_PAGE_SIZE,
 ) -> MoviePageOut:
     total = count_movies(connection, year=year, winner=winner)
-    rows = fetch_movies(
-        connection,
-        year=year,
-        winner=winner,
-        limit=size,
-        offset=(page - 1) * size,
-    )
 
-    producers = fetch_producers_by_movie(connection, [int(row["id"]) for row in rows])
+    items = [
+        MovieOut.from_row(row, producers)
+        for row, producers in fetch_movies_with_producers(
+            connection,
+            year=year,
+            winner=winner,
+            limit=size,
+            offset=(page - 1) * size,
+        )
+    ]
 
-    return MoviePageOut(
-        items=[
-            MovieOut.from_row(row, producers.get(int(row["id"]), [])) for row in rows
-        ],
-        page=page,
-        size=size,
-        total=total,
-    )
+    return MoviePageOut(items=items, page=page, size=size, total=total)
 
 
 @router.get(
@@ -111,10 +107,10 @@ async def read_movie(
     connection: Connection,
     movie_id: Annotated[int, Path(description="Identificador do filme")],
 ) -> MovieOut:
-    row = fetch_movie(connection, movie_id)
+    found = fetch_movie_with_producers(connection, movie_id)
 
-    if row is None:
+    if found is None:
         raise HTTPException(status_code=404, detail="Filme nao encontrado")
 
-    producers = fetch_producers_by_movie(connection, [movie_id])
-    return MovieOut.from_row(row, producers.get(movie_id, []))
+    row, producers = found
+    return MovieOut.from_row(row, producers)
